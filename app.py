@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -22,4 +23,7 @@ def get_location():
         return jsonify({"error": "No location set"}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Get the port from the environment (Render provides this automatically)
+    port = int(os.environ.get("PORT", 5000))
+    # Run the app, binding to 0.0.0.0 to be accessible externally
+    app.run(host='0.0.0.0', port=port)
