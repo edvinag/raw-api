@@ -5,19 +5,19 @@ import requests
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-print('Starting service...')
+print('App starting up')
 
 BRIDGE = os.getenv('BRIDGE')
 if not BRIDGE:
     raise RuntimeError('BRIDGE environment variable is not set')
 
 TARGET_URL = f'{BRIDGE}/sim/all'
-print(f'Polling target URL: {TARGET_URL}')
+print(f'Polling {TARGET_URL}')
 
 app = FastAPI()
 
 latest_data = None
-latest_error = None
+latest_error = 'poller not run yet'
 
 
 def poll_bridge():
@@ -27,35 +27,28 @@ def poll_bridge():
 
     while True:
         try:
-            print('Fetching data from BRIDGE...')
             r = requests.get(TARGET_URL, timeout=5)
-            print(f'Response status: {r.status_code}')
-
             r.raise_for_status()
+
             latest_data = r.json()
             latest_error = None
 
-            print('Successfully updated latest_data')
-
+            print('Poll ok, data updated')
         except Exception as e:
             latest_error = str(e)
-            print(f'Polling error: {latest_error}')
+            print(f'Poll error: {latest_error}')
 
         time.sleep(1)
 
 
 @app.get('/latest')
 def latest():
-    print('GET /latest called')
-
     if latest_data is None:
-        print('No data available yet')
         return JSONResponse(
             status_code=503,
             content={'status': 'no_data', 'error': latest_error}
         )
 
-    print('Returning latest data')
     return {'status': 'ok', 'data': latest_data}
 
 
