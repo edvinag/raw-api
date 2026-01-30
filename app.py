@@ -1,28 +1,51 @@
 import os
-from flask import Flask, request, jsonify
+import time
+import threading
+import requests
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
-app = Flask(__name__)
+BRIDGE = os.getenv('BRIDGE')
+if not BRIDGE:
+    raise RuntimeError('BRIDGE environment variable is not set')
 
-# Load the initial IP address from the environment variable, if set
-ip_data = {"ip_address": os.environ.get("IP_ADDRESS", None)}
+TARGET_URL = f'{BRIDGE}/sim/all'
 
-@app.route('/set_ip', methods=['POST'])
-def set_ip():
-    data = request.get_json()
-    if 'ip_address' in data:
-        # Update the IP address in the environment variable
-        ip_data['ip_address'] = data['ip_address']
-        return jsonify({"message": "IP address set successfully!"}), 200
-    else:
-        return jsonify({"error": "No IP address provided"}), 400
+app = FastAPI()
 
-@app.route('/get_ip', methods=['GET'])
-def get_ip():
-    if ip_data.get('ip_address'):
-        return jsonify({"ip_address": ip_data['ip_address']}), 200
-    else:
-        return jsonify({"error": "No IP address set"}), 404
+latest_data = None
+latest_error = None
 
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+
+def poll_bridge():
+    global latest_data, latest_error
+
+    while True:
+        try:
+            response = requests.get(TARGET_URL, timeout=5)
+            response.raise_for_status()
+            latest_data = response.json()
+            latest_error = None
+        except Exception as e:
+            latest_error = str(e)
+        time.sleep(1)
+
+
+@app.get('/latest')
+def get_latest():
+    if latest_data is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                'status': 'no_data',
+                'error': latest_error
+            }
+        )
+
+    return {
+        'status': 'ok',
+        'data': latest_data
+    }
+
+
+threading.Thread(target=poll_bridge, daemon=True).start()
