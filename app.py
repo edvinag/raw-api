@@ -22,9 +22,9 @@ def poll_bridge():
 
     while True:
         try:
-            response = requests.get(TARGET_URL, timeout=5)
-            response.raise_for_status()
-            latest_data = response.json()
+            r = requests.get(TARGET_URL, timeout=5)
+            r.raise_for_status()
+            latest_data = r.json()
             latest_error = None
         except Exception as e:
             latest_error = str(e)
@@ -32,20 +32,10 @@ def poll_bridge():
 
 
 @app.get('/latest')
-def get_latest():
+def latest():
     if latest_data is None:
-        return JSONResponse(
-            status_code=503,
-            content={
-                'status': 'no_data',
-                'error': latest_error
-            }
-        )
-
-    return {
-        'status': 'ok',
-        'data': latest_data
-    }
+        return JSONResponse(status_code=503, content={'status': 'no_data', 'error': latest_error})
+    return {'status': 'ok', 'data': latest_data}
 
 
 threading.Thread(target=poll_bridge, daemon=True).start()
